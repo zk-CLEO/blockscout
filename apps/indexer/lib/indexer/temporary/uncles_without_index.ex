@@ -23,7 +23,7 @@ defmodule Indexer.Temporary.UnclesWithoutIndex do
 
   @defaults [
     flush_interval: :timer.seconds(3),
-    max_batch_size: 100,
+    max_batch_size: 50,
     max_concurrency: 10,
     task_supervisor: Indexer.Temporary.UnclesWithoutIndex.TaskSupervisor,
     metadata: [fetcher: :uncles_without_index]

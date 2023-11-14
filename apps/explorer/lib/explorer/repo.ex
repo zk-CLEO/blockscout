@@ -7,10 +7,10 @@ defmodule Explorer.Repo do
 
   @doc """
   Dynamically loads the repository url from the
-  DATABASE_URL environment variable.
+  DATABASE_URL_BLOCKSCOUT environment variable.
   """
   def init(_, opts) do
-    {:ok, Keyword.put(opts, :url, System.get_env("DATABASE_URL"))}
+    {:ok, Keyword.put(opts, :url, System.get_env("DATABASE_URL_BLOCKSCOUT"))}
   end
 
   def logged_transaction(fun_or_multi, opts \\ []) do

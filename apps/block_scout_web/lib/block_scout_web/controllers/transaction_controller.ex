@@ -1,16 +1,33 @@
 defmodule BlockScoutWeb.TransactionController do
   use BlockScoutWeb, :controller
 
-  import BlockScoutWeb.Chain, only: [paging_options: 1, next_page_params: 3, split_list_by_page: 1]
+  import BlockScoutWeb.Chain,
+    only: [paging_options: 1, next_page_params: 3, split_list_by_page: 1]
 
   alias BlockScoutWeb.{AccessHelpers, Controller, TransactionView}
   alias Explorer.Chain
   alias Phoenix.View
+  alias BlockScoutWeb.Privacy.PrivacyVerify
 
-  {:ok, burn_address_hash} = Chain.string_to_address_hash("0x0000000000000000000000000000000000000000")
+  {:ok, burn_address_hash} =
+    Chain.string_to_address_hash("0x0000000000000000000000000000000000000000")
+
   @burn_address_hash burn_address_hash
 
   def index(conn, %{"type" => "JSON"} = params) do
+    ## Verify wallet
+    address_verified = PrivacyVerify.wallet_verify(conn, nil)
+    wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+    wallet_login_hash =
+      if wallet_login == nil do
+        nil
+      else
+        {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+        wallet_login_hash
+      end
+
+    ##
     full_options =
       Keyword.merge(
         [
@@ -41,13 +58,31 @@ defmodule BlockScoutWeb.TransactionController do
       %{
         items:
           Enum.map(transactions, fn transaction ->
-            View.render_to_string(
-              TransactionView,
-              "_tile.html",
-              transaction: transaction,
-              burn_address_hash: @burn_address_hash,
-              conn: conn
-            )
+            %Chain.Transaction{
+              from_address_hash: from_address_hash,
+              to_address_hash: to_address_hash
+            } = transaction
+
+            if address_verified == true ||
+                 (wallet_login_hash != nil &&
+                    (from_address_hash == wallet_login_hash ||
+                       to_address_hash == wallet_login_hash)) do
+              View.render_to_string(
+                TransactionView,
+                "_tile.html",
+                transaction: transaction,
+                burn_address_hash: @burn_address_hash,
+                conn: conn
+              )
+            else
+              View.render_to_string(
+                TransactionView,
+                "_empty.html",
+                transaction: transaction,
+                burn_address_hash: @burn_address_hash,
+                conn: conn
+              )
+            end
           end),
         next_page_path: next_page_path
       }
@@ -69,9 +104,13 @@ defmodule BlockScoutWeb.TransactionController do
     with {:ok, transaction_hash} <- Chain.string_to_transaction_hash(id),
          :ok <- Chain.check_transaction_exists(transaction_hash) do
       if Chain.transaction_has_token_transfers?(transaction_hash) do
-        redirect(conn, to: AccessHelpers.get_path(conn, :transaction_token_transfer_path, :index, id))
+        redirect(conn,
+          to: AccessHelpers.get_path(conn, :transaction_token_transfer_path, :index, id)
+        )
       else
-        redirect(conn, to: AccessHelpers.get_path(conn, :transaction_internal_transaction_path, :index, id))
+        redirect(conn,
+          to: AccessHelpers.get_path(conn, :transaction_internal_transaction_path, :index, id)
+        )
       end
     else
       :error ->

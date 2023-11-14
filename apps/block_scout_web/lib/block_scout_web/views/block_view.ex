@@ -76,8 +76,9 @@ defmodule BlockScoutWeb.BlockView do
   end
 
   def combined_rewards_value(block) do
+    String.replace(
     block
     |> Chain.block_combined_rewards()
-    |> format_wei_value(:ether)
+    |> format_wei_value(:ether), "Ether", "CLEO")
   end
 end

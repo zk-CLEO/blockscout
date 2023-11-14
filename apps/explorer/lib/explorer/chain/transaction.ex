@@ -149,7 +149,7 @@ defmodule Explorer.Chain.Transaction do
           earliest_processing_start: DateTime.t() | nil,
           error: String.t() | nil,
           forks: %Ecto.Association.NotLoaded{} | [Fork.t()],
-          from_address: %Ecto.Association.NotLoaded{} | Address.t(),
+          from_address: %Ecto.Association.NotLoaded{} | Address.t() | nil,
           from_address_hash: Hash.Address.t(),
           gas: Gas.t(),
           gas_price: wei_per_gas,

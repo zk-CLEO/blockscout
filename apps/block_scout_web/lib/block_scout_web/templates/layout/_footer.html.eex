@@ -17,7 +17,7 @@
 
     <div class="row">
       <div class="col-xs-12 col-lg-3">
-        <p class="footer-info-text"><%= gettext("zkScan is a Block Explorer and Analytics Platform for zkSync") %></p>
+        <p class="footer-info-text"><%= gettext("CLEOScan is a Block Explorer and Analytics Platform for CLEO") %></p>
         <div class="footer-social-icons">
           <a href="https://github.com/matter-labs/" rel="noreferrer" target="_blank" class="footer-social-icon" title='<%= gettext("Github") %>'>
             <div class="footer-social-icon-container fontawesome-icon github"></div>
@@ -32,7 +32,7 @@
       </div>
 
       <div class="col-xs-12 col-md-4 col-lg-<%= col_size %> footer-list">
-        <h3>zkScan</h3>
+        <h3>CLEOScan</h3>
         <ul>
           <li><a href="https://v2-docs.zksync.io/dev/" rel="noreferrer" class="footer-link"><%= gettext("Docs") %></a></li>
           <li><a href="https://zksync.io/legal/terms.html" rel="noreferrer" class="footer-link"><%= gettext("Terms") %></a></li>

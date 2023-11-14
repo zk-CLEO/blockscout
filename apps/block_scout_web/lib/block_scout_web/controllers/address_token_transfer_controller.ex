@@ -7,6 +7,7 @@ defmodule BlockScoutWeb.AddressTokenTransferController do
   alias Explorer.Chain.Address
   alias Indexer.Fetcher.CoinBalanceOnDemand
   alias Phoenix.View
+  alias BlockScoutWeb.Privacy.PrivacyVerify
 
   import BlockScoutWeb.Chain,
     only: [current_filter: 1, next_page_params: 3, paging_options: 1, split_list_by_page: 1]
@@ -24,7 +25,9 @@ defmodule BlockScoutWeb.AddressTokenTransferController do
     }
   ]
 
-  {:ok, burn_address_hash} = Chain.string_to_address_hash("0x0000000000000000000000000000000000000000")
+  {:ok, burn_address_hash} =
+    Chain.string_to_address_hash("0x0000000000000000000000000000000000000000")
+
   @burn_address_hash burn_address_hash
 
   def index(
@@ -40,6 +43,19 @@ defmodule BlockScoutWeb.AddressTokenTransferController do
          {:ok, address} <- Chain.hash_to_address(address_hash),
          {:ok, _} <- Chain.token_from_address_hash(token_hash),
          {:ok, false} <- AccessHelpers.restricted_access?(address_hash_string, params) do
+      ## Verify wallet
+      address_verified = PrivacyVerify.wallet_verify(conn, address_hash_string)
+      wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+      wallet_login_hash =
+        if wallet_login == nil do
+          nil
+        else
+          {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+          wallet_login_hash
+        end
+
+      ##
       transactions =
         Chain.address_to_transactions_with_token_transfers(
           address_hash,
@@ -66,14 +82,32 @@ defmodule BlockScoutWeb.AddressTokenTransferController do
 
       transfers_json =
         Enum.map(transactions_paginated, fn transaction ->
-          View.render_to_string(
-            TransactionView,
-            "_tile.html",
-            conn: conn,
-            transaction: transaction,
-            burn_address_hash: @burn_address_hash,
-            current_address: address
-          )
+          %Chain.Transaction{
+            from_address_hash: from_address_hash,
+            to_address_hash: to_address_hash
+          } = transaction
+
+          if address_verified == true ||
+               (wallet_login_hash != nil &&
+                  (from_address_hash == wallet_login_hash || to_address_hash == wallet_login_hash)) do
+            View.render_to_string(
+              TransactionView,
+              "_tile.html",
+              conn: conn,
+              transaction: transaction,
+              burn_address_hash: @burn_address_hash,
+              current_address: address
+            )
+          else
+            View.render_to_string(
+              TransactionView,
+              "_empty.html",
+              conn: conn,
+              transaction: transaction,
+              burn_address_hash: @burn_address_hash,
+              current_address: address
+            )
+          end
         end)
 
       json(conn, %{items: transfers_json, next_page_path: next_page_path})
@@ -106,7 +140,8 @@ defmodule BlockScoutWeb.AddressTokenTransferController do
         exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
         current_path: Controller.current_full_path(conn),
         token: token,
-        counters_path: address_path(conn, :address_counters, %{"id" => Address.checksum(address_hash)})
+        counters_path:
+          address_path(conn, :address_counters, %{"id" => Address.checksum(address_hash)})
       )
     else
       {:restricted_access, _} ->
@@ -130,6 +165,20 @@ defmodule BlockScoutWeb.AddressTokenTransferController do
     with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
          {:ok, address} <- Chain.hash_to_address(address_hash),
          {:ok, false} <- AccessHelpers.restricted_access?(address_hash_string, params) do
+      ## Verify wallet
+      address_verified = PrivacyVerify.wallet_verify(conn, address_hash_string)
+      wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+      wallet_login_hash =
+        if wallet_login == nil do
+          nil
+        else
+          {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+          wallet_login_hash
+        end
+
+      ##
+
       options =
         @transaction_necessity_by_association
         |> Keyword.merge(paging_options(params))
@@ -159,14 +208,32 @@ defmodule BlockScoutWeb.AddressTokenTransferController do
 
       transfers_json =
         Enum.map(transactions_paginated, fn transaction ->
-          View.render_to_string(
-            TransactionView,
-            "_tile.html",
-            conn: conn,
-            transaction: transaction,
-            burn_address_hash: @burn_address_hash,
-            current_address: address
-          )
+          %Chain.Transaction{
+            from_address_hash: from_address_hash,
+            to_address_hash: to_address_hash
+          } = transaction
+
+          if address_verified == true ||
+               (wallet_login_hash != nil &&
+                  (from_address_hash == wallet_login_hash || to_address_hash == wallet_login_hash)) do
+            View.render_to_string(
+              TransactionView,
+              "_tile.html",
+              conn: conn,
+              transaction: transaction,
+              burn_address_hash: @burn_address_hash,
+              current_address: address
+            )
+          else
+            View.render_to_string(
+              TransactionView,
+              "_empty.html",
+              conn: conn,
+              transaction: transaction,
+              burn_address_hash: @burn_address_hash,
+              current_address: address
+            )
+          end
         end)
 
       json(conn, %{items: transfers_json, next_page_path: next_page_path})
@@ -197,7 +264,8 @@ defmodule BlockScoutWeb.AddressTokenTransferController do
         exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
         filter: params["filter"],
         current_path: Controller.current_full_path(conn),
-        counters_path: address_path(conn, :address_counters, %{"id" => Address.checksum(address_hash)})
+        counters_path:
+          address_path(conn, :address_counters, %{"id" => Address.checksum(address_hash)})
       )
     else
       {:restricted_access, _} ->

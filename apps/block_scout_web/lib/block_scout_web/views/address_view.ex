@@ -111,7 +111,7 @@ defmodule BlockScoutWeb.AddressView do
   def balance(%Address{fetched_coin_balance: nil}), do: ""
 
   def balance(%Address{fetched_coin_balance: balance}) do
-    format_wei_value(balance, :ether)
+    String.replace(format_wei_value(balance, :ether), "Ether", "CLEO")
   end
 
   def balance_percentage_enabled?(total_supply) do

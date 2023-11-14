@@ -5,18 +5,33 @@ defmodule BlockScoutWeb.AddressInternalTransactionController do
 
   use BlockScoutWeb, :controller
 
-  import BlockScoutWeb.Chain, only: [current_filter: 1, paging_options: 1, next_page_params: 3, split_list_by_page: 1]
+  import BlockScoutWeb.Chain,
+    only: [current_filter: 1, paging_options: 1, next_page_params: 3, split_list_by_page: 1]
 
   alias BlockScoutWeb.{AccessHelpers, Controller, InternalTransactionView}
   alias Explorer.{Chain, Market}
   alias Explorer.ExchangeRates.Token
   alias Indexer.Fetcher.CoinBalanceOnDemand
   alias Phoenix.View
+  alias BlockScoutWeb.Privacy.PrivacyVerify
 
   def index(conn, %{"address_id" => address_hash_string, "type" => "JSON"} = params) do
     with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
          {:ok, address} <- Chain.hash_to_address(address_hash, [], false),
          {:ok, false} <- AccessHelpers.restricted_access?(address_hash_string, params) do
+      ## Verify wallet
+      address_verified = PrivacyVerify.wallet_verify(conn, address_hash_string)
+      wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+      wallet_login_hash =
+        if wallet_login == nil do
+          nil
+        else
+          {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+          wallet_login_hash
+        end
+
+      ##
       full_options =
         [
           necessity_by_association: %{
@@ -28,7 +43,9 @@ defmodule BlockScoutWeb.AddressInternalTransactionController do
         |> Keyword.merge(paging_options(params))
         |> Keyword.merge(current_filter(params))
 
-      internal_transactions_plus_one = Chain.address_to_internal_transactions(address_hash, full_options)
+      internal_transactions_plus_one =
+        Chain.address_to_internal_transactions(address_hash, full_options)
+
       {internal_transactions, next_page} = split_list_by_page(internal_transactions_plus_one)
 
       next_page_path =
@@ -37,17 +54,38 @@ defmodule BlockScoutWeb.AddressInternalTransactionController do
             nil
 
           next_page_params ->
-            address_internal_transaction_path(conn, :index, address_hash, Map.delete(next_page_params, "type"))
+            address_internal_transaction_path(
+              conn,
+              :index,
+              address_hash,
+              Map.delete(next_page_params, "type")
+            )
         end
 
       internal_transactions_json =
         Enum.map(internal_transactions, fn internal_transaction ->
-          View.render_to_string(
-            InternalTransactionView,
-            "_tile.html",
-            current_address: address,
-            internal_transaction: internal_transaction
-          )
+          %Chain.InternalTransaction{
+            from_address_hash: from_address_hash,
+            to_address_hash: to_address_hash
+          } = internal_transaction
+
+          if address_verified == true ||
+               (wallet_login_hash != nil &&
+                  (from_address_hash == wallet_login_hash || to_address_hash == wallet_login_hash)) do
+            View.render_to_string(
+              InternalTransactionView,
+              "_tile.html",
+              current_address: address,
+              internal_transaction: internal_transaction
+            )
+          else
+            View.render_to_string(
+              InternalTransactionView,
+              "_empty.html",
+              current_address: address,
+              internal_transaction: internal_transaction
+            )
+          end
         end)
 
       json(conn, %{items: internal_transactions_json, next_page_path: next_page_path})

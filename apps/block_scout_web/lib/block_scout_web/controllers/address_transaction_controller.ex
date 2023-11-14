@@ -5,7 +5,8 @@ defmodule BlockScoutWeb.AddressTransactionController do
 
   use BlockScoutWeb, :controller
 
-  import BlockScoutWeb.Chain, only: [current_filter: 1, paging_options: 1, next_page_params: 3, split_list_by_page: 1]
+  import BlockScoutWeb.Chain,
+    only: [current_filter: 1, paging_options: 1, next_page_params: 3, split_list_by_page: 1]
 
   alias BlockScoutWeb.{AccessHelpers, Controller, TransactionView}
   alias Explorer.{Chain, Market}
@@ -20,6 +21,7 @@ defmodule BlockScoutWeb.AddressTransactionController do
   alias Explorer.ExchangeRates.Token
   alias Indexer.Fetcher.CoinBalanceOnDemand
   alias Phoenix.View
+  alias BlockScoutWeb.Privacy.PrivacyVerify
 
   @transaction_necessity_by_association [
     necessity_by_association: %{
@@ -30,7 +32,9 @@ defmodule BlockScoutWeb.AddressTransactionController do
     }
   ]
 
-  {:ok, burn_address_hash} = Chain.string_to_address_hash("0x0000000000000000000000000000000000000000")
+  {:ok, burn_address_hash} =
+    Chain.string_to_address_hash("0x0000000000000000000000000000000000000000")
+
   @burn_address_hash burn_address_hash
 
   def index(conn, %{"address_id" => address_hash_string, "type" => "JSON"} = params) do
@@ -39,6 +43,19 @@ defmodule BlockScoutWeb.AddressTransactionController do
     with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
          {:ok, address} <- Chain.hash_to_address(address_hash, address_options, false),
          {:ok, false} <- AccessHelpers.restricted_access?(address_hash_string, params) do
+      ## Verify wallet
+      address_verified = PrivacyVerify.wallet_verify(conn, address_hash_string)
+      wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+      wallet_login_hash =
+        if wallet_login == nil do
+          nil
+        else
+          {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+          wallet_login_hash
+        end
+
+      ##
       options =
         @transaction_necessity_by_association
         |> Keyword.merge(paging_options(params))
@@ -74,14 +91,33 @@ defmodule BlockScoutWeb.AddressTransactionController do
               )
 
             %Chain.Transaction{} = transaction ->
-              View.render_to_string(
-                TransactionView,
-                "_tile.html",
-                conn: conn,
-                current_address: address,
-                transaction: transaction,
-                burn_address_hash: @burn_address_hash
-              )
+              %Chain.Transaction{
+                from_address_hash: from_address_hash,
+                to_address_hash: to_address_hash
+              } = transaction
+
+              if address_verified == true ||
+                   (wallet_login_hash != nil &&
+                      (from_address_hash == wallet_login_hash ||
+                         to_address_hash == wallet_login_hash)) do
+                View.render_to_string(
+                  TransactionView,
+                  "_tile.html",
+                  conn: conn,
+                  current_address: address,
+                  transaction: transaction,
+                  burn_address_hash: @burn_address_hash
+                )
+              else
+                View.render_to_string(
+                  TransactionView,
+                  "_empty.html",
+                  conn: conn,
+                  current_address: address,
+                  transaction: transaction,
+                  burn_address_hash: @burn_address_hash
+                )
+              end
           end
         end)
 
@@ -138,7 +174,8 @@ defmodule BlockScoutWeb.AddressTransactionController do
               coin_balance_status: nil,
               exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
               filter: params["filter"],
-              counters_path: address_path(conn, :address_counters, %{"id" => address_hash_string}),
+              counters_path:
+                address_path(conn, :address_counters, %{"id" => address_hash_string}),
               current_path: Controller.current_full_path(conn)
             )
 
@@ -213,7 +250,10 @@ defmodule BlockScoutWeb.AddressTransactionController do
       |> Enum.into(
         conn
         |> put_resp_content_type("application/csv")
-        |> put_resp_header("content-disposition", "attachment; filename=internal_transactions.csv")
+        |> put_resp_header(
+          "content-disposition",
+          "attachment; filename=internal_transactions.csv"
+        )
         |> send_chunked(200)
       )
     else
@@ -227,7 +267,11 @@ defmodule BlockScoutWeb.AddressTransactionController do
 
   def internal_transactions_csv(conn, _), do: not_found(conn)
 
-  def logs_csv(conn, %{"address_id" => address_hash_string, "from_period" => from_period, "to_period" => to_period}) do
+  def logs_csv(conn, %{
+        "address_id" => address_hash_string,
+        "from_period" => from_period,
+        "to_period" => to_period
+      }) do
     with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
          {:ok, address} <- Chain.hash_to_address(address_hash) do
       address

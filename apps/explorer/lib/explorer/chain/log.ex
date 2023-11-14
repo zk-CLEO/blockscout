@@ -32,7 +32,7 @@ defmodule Explorer.Chain.Log do
           address_hash: Hash.Address.t(),
           block_hash: Hash.Full.t(),
           block_number: non_neg_integer() | nil,
-          data: Data.t(),
+          data: Data.t() | nil,
           first_topic: String.t(),
           second_topic: String.t(),
           third_topic: String.t(),

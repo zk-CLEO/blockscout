@@ -11,6 +11,10 @@ defmodule BlockScoutWeb.WebRouter do
     plug(:protect_from_forgery)
     plug(BlockScoutWeb.CSPHeader)
     plug(BlockScoutWeb.ChecksumAddress)
+    plug(
+      :put_secure_browser_headers,
+      %{"content-security-policy" => "connect-src *"}
+    )
   end
 
   # Disallows Iframes (write routes)

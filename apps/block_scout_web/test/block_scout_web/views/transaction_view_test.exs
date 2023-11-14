@@ -137,7 +137,7 @@ defmodule BlockScoutWeb.TransactionViewTest do
         )
 
       expected_value = "Max of 0.009 Ether"
-      assert expected_value == TransactionView.formatted_fee(transaction, denomination: :ether)
+      assert expected_value == String.replace(TransactionView.formatted_fee(transaction, denomination: :ether), "Ether", "CLEO")
     end
 
     test "with fee" do
@@ -145,7 +145,7 @@ defmodule BlockScoutWeb.TransactionViewTest do
       transaction = build(:transaction, gas_price: gas_price, gas_used: Decimal.from_float(1_034_234.0))
 
       expected_value = "0.003102702 Ether"
-      assert expected_value == TransactionView.formatted_fee(transaction, denomination: :ether)
+      assert expected_value == String.replace(TransactionView.formatted_fee(transaction, denomination: :ether), "Ether", "CLEO")
     end
   end
 

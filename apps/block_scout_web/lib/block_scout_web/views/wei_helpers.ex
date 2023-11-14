@@ -67,9 +67,9 @@ defmodule BlockScoutWeb.WeiHelpers do
 
     if Keyword.get(options, :include_unit_label, true) do
       display_unit = display_unit(unit)
-      "#{formatted_value} #{display_unit}"
+      String.replace("#{formatted_value} #{display_unit}", "Ether", "CLEO")
     else
-      formatted_value
+      String.replace(formatted_value, "Ether", "CLEO")
     end
   end
 

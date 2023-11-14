@@ -9,7 +9,7 @@ export MIX_ENV=prod
 
 source /etc/environment
 
-export DATABASE_URL
+export DATABASE_URL_BLOCKSCOUT
 export POOL_SIZE
 export ECTO_USE_SSL
 

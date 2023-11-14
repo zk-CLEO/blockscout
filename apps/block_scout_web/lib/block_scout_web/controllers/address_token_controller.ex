@@ -1,7 +1,8 @@
 defmodule BlockScoutWeb.AddressTokenController do
   use BlockScoutWeb, :controller
 
-  import BlockScoutWeb.Chain, only: [next_page_params: 3, paging_options: 1, split_list_by_page: 1]
+  import BlockScoutWeb.Chain,
+    only: [next_page_params: 3, paging_options: 1, split_list_by_page: 1]
 
   alias BlockScoutWeb.{AccessHelpers, AddressTokenView, Controller}
   alias Explorer.{Chain, Market}
@@ -9,11 +10,26 @@ defmodule BlockScoutWeb.AddressTokenController do
   alias Explorer.ExchangeRates.Token
   alias Indexer.Fetcher.CoinBalanceOnDemand
   alias Phoenix.View
+  alias BlockScoutWeb.Privacy.PrivacyVerify
 
   def index(conn, %{"address_id" => address_hash_string, "type" => "JSON"} = params) do
     with {:ok, address_hash} <- Chain.string_to_address_hash(address_hash_string),
          {:ok, address} <- Chain.hash_to_address(address_hash, [], false),
          {:ok, false} <- AccessHelpers.restricted_access?(address_hash_string, params) do
+      ## Verify wallet
+      address_verified = PrivacyVerify.wallet_verify(conn, address_hash_string)
+      wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+      wallet_login_hash =
+        if wallet_login == nil do
+          nil
+        else
+          {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+          wallet_login_hash
+        end
+
+      ##
+
       token_balances_plus_one =
         address_hash
         |> Chain.fetch_last_token_balances(paging_options(params))
@@ -34,15 +50,27 @@ defmodule BlockScoutWeb.AddressTokenController do
         tokens
         |> Market.add_price()
         |> Enum.map(fn {token_balance, bridged_token, token} ->
-          View.render_to_string(
-            AddressTokenView,
-            "_tokens.html",
-            token_balance: token_balance,
-            token: token,
-            bridged_token: bridged_token,
-            address: address,
-            conn: conn
-          )
+          if address_verified == true || wallet_login_hash == address_hash do
+            View.render_to_string(
+              AddressTokenView,
+              "_tokens.html",
+              token_balance: token_balance,
+              token: token,
+              bridged_token: bridged_token,
+              address: address,
+              conn: conn
+            )
+          else
+            View.render_to_string(
+              AddressTokenView,
+              "_empty.html",
+              token_balance: token_balance,
+              token: token,
+              bridged_token: bridged_token,
+              address: address,
+              conn: conn
+            )
+          end
         end)
 
       json(
@@ -75,7 +103,8 @@ defmodule BlockScoutWeb.AddressTokenController do
         current_path: Controller.current_full_path(conn),
         coin_balance_status: CoinBalanceOnDemand.trigger_fetch(address),
         exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
-        counters_path: address_path(conn, :address_counters, %{"id" => Address.checksum(address_hash)})
+        counters_path:
+          address_path(conn, :address_counters, %{"id" => Address.checksum(address_hash)})
       )
     else
       {:restricted_access, _} ->

@@ -1,0 +1,9 @@
+<div connect-to class="connect-container row mr-1 ml-1">
+    <button top-connect-wallet class="button btn-line ml-4 mr-1">Connect wallet</button>
+</div>
+<div connected-to class="connect-container row mr-1 ml-1">
+    <span show-wallet class="button btn-line ml-4 hidden">Not Connect</span>
+</div>
+<div connected-to class="connect-container row mr-1 ml-1">
+    <button top-disconnect-wallet class="button btn-line ml-3 hidden">Disconnect wallet</button>
+</div>

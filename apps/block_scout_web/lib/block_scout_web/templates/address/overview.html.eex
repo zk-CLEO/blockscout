@@ -80,7 +80,7 @@
                     @address.hash),
                     "data-test":
                     "token_hash_link"
-                  ) 
+                  )
                   %>
                 </dd>
               </dl>
@@ -154,7 +154,7 @@
                   to: address_path(@conn, :show, implementation_address),
                   class: "contract-address mb-2",
                   style: "margin-top: 0.5rem;"
-                ) 
+                )
                 %>
               </dd>
             </dl>
@@ -177,7 +177,7 @@
                     data-placement="top"
                     data-toggle="tooltip"
                     data-html="true"
-                    title='<%= "@ " <> usd_value <> "/" <> gettext("Ether") %>'  
+                    title='<%= "@ " <> usd_value <> "/" <> gettext("CLEO") %>'
                   >
                   </span>)
                 </span>
@@ -289,4 +289,4 @@
   <%= render BlockScoutWeb.AddressView, "_validator_metadata_modal.html", address_name: address_name, validator_metadata: validator_metadata %>
 <% end %>
 
-<%= render BlockScoutWeb.Advertisement.BannersAdView, "_banner_728.html", conn: @conn %> 
+<%= render BlockScoutWeb.Advertisement.BannersAdView, "_banner_728.html", conn: @conn %>

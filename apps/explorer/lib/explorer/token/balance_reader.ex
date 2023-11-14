@@ -94,7 +94,8 @@ defmodule Explorer.Token.BalanceReader do
       contract_address: token_contract_address_hash,
       method_id: method_id,
       args: [address_hash],
-      block_number: block_number
+      block_number: block_number,
+      from: address_hash
     }
   end
 

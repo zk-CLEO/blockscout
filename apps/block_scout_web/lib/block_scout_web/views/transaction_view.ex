@@ -303,11 +303,11 @@ defmodule BlockScoutWeb.TransactionView do
 
   def fee(%Transaction{} = transaction) do
     {_, value} = Chain.fee(transaction, :wei)
-    value
+    String.replace(value, "Ether", "CLEO")
   end
 
   def format_gas_limit(gas) do
-    Number.to_string!(gas)
+    String.replace(Number.to_string!(gas), "Ether", "CLEO")
   end
 
   def formatted_fee(%Transaction{} = transaction, opts) do
@@ -315,8 +315,8 @@ defmodule BlockScoutWeb.TransactionView do
     |> Chain.fee(:wei)
     |> fee_to_denomination(opts)
     |> case do
-      {:actual, value} -> value
-      {:maximum, value} -> "#{gettext("Max of")} #{value}"
+      {:actual, value} -> String.replace(value, "Ether", "CLEO")
+      {:maximum, value} -> String.replace("#{gettext("Max of")} #{value}", "Ether", "CLEO")
     end
   end
 
@@ -380,13 +380,13 @@ defmodule BlockScoutWeb.TransactionView do
   Converts a transaction's gas price to a displayable value.
   """
   def gas_price(%Transaction{gas_price: gas_price}, unit) when unit in ~w(wei gwei ether)a do
-    format_wei_value(gas_price, unit)
+    String.replace(format_wei_value(gas_price, unit), "Ether", "CLEO")
   end
 
   def gas_used(%Transaction{gas_used: nil}), do: gettext("Pending")
 
   def gas_used(%Transaction{gas_used: gas_used}) do
-    Number.to_string!(gas_used)
+    String.replace(Number.to_string!(gas_used), "Ether", "CLEO")
   end
 
   def gas_used_perc(%Transaction{gas_used: nil}), do: nil
@@ -479,17 +479,17 @@ defmodule BlockScoutWeb.TransactionView do
   """
   def value(%mod{value: value}, opts \\ []) when is_transaction_type(mod) do
     include_label? = Keyword.get(opts, :include_label, true)
-    format_wei_value(value, :ether, include_unit_label: include_label?)
+    String.replace(format_wei_value(value, :ether, include_unit_label: include_label?), "Ether", "CLEO")
   end
 
   def format_wei_value(value) do
-    format_wei_value(value, :ether, include_unit_label: false)
+    String.replace(format_wei_value(value, :ether, include_unit_label: false), "Ether", "CLEO")
   end
 
   defp fee_to_denomination({fee_type, fee}, opts) do
     denomination = Keyword.get(opts, :denomination)
     include_label? = Keyword.get(opts, :include_label, true)
-    {fee_type, format_wei_value(Wei.from(fee, :wei), denomination, include_unit_label: include_label?)}
+    {fee_type, String.replace(format_wei_value(Wei.from(fee, :wei), denomination, include_unit_label: include_label?), "Ether", "CLEO")}
   end
 
   @doc """

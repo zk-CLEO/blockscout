@@ -82,6 +82,81 @@
                   title: gettext("Copy Txn Hash") %>
             </dd>
           </dl>
+          <dl class="row">
+            <dt class="col-sm-3 col-lg-2 text-muted">
+              <%= render BlockScoutWeb.CommonComponentsView, "_i_tooltip_2.html",
+              text: gettext("Current transaction state: Success, Failed (Error), or Pending (In Process)") %>
+              <%= gettext "Result" %>
+            </dt>
+            <dd class="col-sm-9 col-lg-10">
+              <% formatted_result = BlockScoutWeb.TransactionView.formatted_result(status) %>
+              <span class="mr-4" data-transaction-status="<%= formatted_result %>"><%= render BlockScoutWeb.CommonComponentsView, "_status_icon.html", status: status %><%= formatted_result %></span>
+            </dd>
+          </dl>
+          <dl class="row">
+            <dt class="col-sm-3 col-lg-2 text-muted">
+              <%= render BlockScoutWeb.CommonComponentsView, "_i_tooltip_2.html",
+              text: gettext("The status of the transaction: Confirmed or Unconfirmed.") %>
+              <%= gettext "Status" %>
+            </dt>
+            <dd class="col-sm-9 col-lg-10">
+              <% formatted_status = BlockScoutWeb.TransactionView.formatted_status(status) %>
+              <% confirmations = confirmations(@transaction, block_height: @block_height) %>
+              <span class="mr-4">
+                <span data-transaction-status="<%= formatted_status %>">
+                  <%= if status == :pending do %>
+                    <%= render BlockScoutWeb.FormView, "_tag.html", text: formatted_status, additional_classes: ["large"] %></span>
+                  <% else %>
+                    <%= render BlockScoutWeb.FormView, "_tag.html", text: formatted_status, additional_classes: ["success", "large"] %></span>
+                  <% end %>
+
+                <%= if confirmations > 0 do %>
+                  <span class="bs-label large ml-2 confirmations-label"><%= gettext "Confirmed by " %><span data-selector="block-confirmations"><%= confirmations %></span><%= " " <> confirmations_ds_name(confirmations) %></span>
+                <% end %>
+              </span>
+            </dd>
+          </dl>
+          <%= if status == {:error, "Reverted"} do %>
+          <dl class="row">
+            <dt class="col-sm-3 col-lg-2 text-muted">
+              <%= render BlockScoutWeb.CommonComponentsView, "_i_tooltip_2.html",
+                text: gettext("The revert reason of the transaction.") %>
+              <%= gettext "Revert reason" %> </dt>
+            <dd class="col-sm-9 col-lg-10">
+              <%= case BlockScoutWeb.TransactionView.transaction_revert_reason(@transaction) do %>
+                <% {:error, _contract_not_verified, candidates} when candidates != [] -> %>
+                  <% {:ok, method_id, text, mapping} = Enum.at(candidates, 0) %>
+                  <%= render(BlockScoutWeb.TransactionView, "_decoded_input_body.html", method_id: method_id, text: text, mapping: mapping, error: true) %>
+                <% {:ok, method_id, text, mapping} -> %>
+                  <%= render(BlockScoutWeb.TransactionView, "_decoded_input_body.html", method_id: method_id, text: text, mapping: mapping, error: true) %>
+                <% _ -> %>
+                  <% hex = BlockScoutWeb.TransactionView.get_pure_transaction_revert_reason(@transaction) %>
+                  <% utf8 = BlockScoutWeb.TransactionView.decoded_revert_reason(@transaction) %>
+                  <div class="tile tile-muted">
+                      <pre class="pre-scrollable pre-scrollable-shorty pre-wrap mb-0"><code>Raw:<%= raw("\t") %><%= hex %><%= raw("\n") %>UTF-8:<%= raw("\t") %><%= utf8 %></code></pre>
+                  </div>
+              <% end %>
+            </dd>
+          </dl>
+          <% end %>
+          <!-- Block -->
+          <dl class="row">
+            <dt class="col-sm-3 col-lg-2 text-muted">
+              <%= render BlockScoutWeb.CommonComponentsView, "_i_tooltip_2.html",
+                text: gettext("Block number containing the transaction.") %>
+              <%= gettext "Block" %></dt>
+            <dd class="col-sm-9 col-lg-10" data-selector="block-number">
+              <%= if block do %>
+                <%= link(
+                      block,
+                      class: "transaction__link",
+                      to: block_path(@conn, :show, block)
+                    ) %>
+              <% else %>
+                <%= formatted_result(status) %>
+              <% end %>
+            </dd>
+          </dl>
       </div>
     </div>
   </div>

@@ -1,14 +1,24 @@
 defmodule BlockScoutWeb.TransactionTokenTransferController do
   use BlockScoutWeb, :controller
 
-  import BlockScoutWeb.Chain, only: [paging_options: 1, next_page_params: 3, split_list_by_page: 1]
+  import BlockScoutWeb.Chain,
+    only: [paging_options: 1, next_page_params: 3, split_list_by_page: 1]
 
-  alias BlockScoutWeb.{AccessHelpers, Controller, TransactionController, TransactionTokenTransferView}
+  alias BlockScoutWeb.{
+    AccessHelpers,
+    Controller,
+    TransactionController,
+    TransactionTokenTransferView
+  }
+
   alias Explorer.{Chain, Market}
   alias Explorer.ExchangeRates.Token
   alias Phoenix.View
+  alias BlockScoutWeb.Privacy.PrivacyVerify
 
-  {:ok, burn_address_hash} = Chain.string_to_address_hash("0x0000000000000000000000000000000000000000")
+  {:ok, burn_address_hash} =
+    Chain.string_to_address_hash("0x0000000000000000000000000000000000000000")
+
   @burn_address_hash burn_address_hash
 
   def index(conn, %{"transaction_id" => transaction_hash_string, "type" => "JSON"} = params) do
@@ -19,8 +29,24 @@ defmodule BlockScoutWeb.TransactionTokenTransferController do
              transaction_hash,
              []
            ),
-         {:ok, false} <- AccessHelpers.restricted_access?(to_string(transaction.from_address_hash), params),
-         {:ok, false} <- AccessHelpers.restricted_access?(to_string(transaction.to_address_hash), params) do
+         {:ok, false} <-
+           AccessHelpers.restricted_access?(to_string(transaction.from_address_hash), params),
+         {:ok, false} <-
+           AccessHelpers.restricted_access?(to_string(transaction.to_address_hash), params) do
+      ## Verify wallet
+      address_verified = PrivacyVerify.wallet_verify(conn, nil)
+      wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+      wallet_login_hash =
+        if wallet_login == nil do
+          nil
+        else
+          {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+          wallet_login_hash
+        end
+
+      ##
+
       full_options =
         Keyword.merge(
           [
@@ -33,7 +59,8 @@ defmodule BlockScoutWeb.TransactionTokenTransferController do
           paging_options(params)
         )
 
-      token_transfers_plus_one = Chain.transaction_to_token_transfers(transaction_hash, full_options)
+      token_transfers_plus_one =
+        Chain.transaction_to_token_transfers(transaction_hash, full_options)
 
       {token_transfers, next_page} = split_list_by_page(token_transfers_plus_one)
 
@@ -43,19 +70,41 @@ defmodule BlockScoutWeb.TransactionTokenTransferController do
             nil
 
           next_page_params ->
-            transaction_token_transfer_path(conn, :index, transaction_hash, Map.delete(next_page_params, "type"))
+            transaction_token_transfer_path(
+              conn,
+              :index,
+              transaction_hash,
+              Map.delete(next_page_params, "type")
+            )
         end
 
       items =
         token_transfers
         |> Enum.map(fn transfer ->
-          View.render_to_string(
-            TransactionTokenTransferView,
-            "_token_transfer.html",
-            token_transfer: transfer,
-            burn_address_hash: @burn_address_hash,
-            conn: conn
-          )
+          %Chain.TokenTransfer{
+            from_address_hash: from_address_hash,
+            to_address_hash: to_address_hash
+          } = transfer
+
+          if address_verified == true ||
+               (wallet_login_hash != nil &&
+                  (from_address_hash == wallet_login_hash || to_address_hash == wallet_login_hash)) do
+            View.render_to_string(
+              TransactionTokenTransferView,
+              "_token_transfer.html",
+              token_transfer: transfer,
+              burn_address_hash: @burn_address_hash,
+              conn: conn
+            )
+          else
+            View.render_to_string(
+              TransactionTokenTransferView,
+              "_empty.html",
+              token_transfer: transfer,
+              burn_address_hash: @burn_address_hash,
+              conn: conn
+            )
+          end
         end)
 
       json(
@@ -81,6 +130,19 @@ defmodule BlockScoutWeb.TransactionTokenTransferController do
   end
 
   def index(conn, %{"transaction_id" => transaction_hash_string} = params) do
+    ## Verify wallet
+    address_verified = PrivacyVerify.wallet_verify(conn, nil)
+    wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+    wallet_login_hash =
+      if wallet_login == nil do
+        nil
+      else
+        {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+        wallet_login_hash
+      end
+
+    ##
     with {:ok, transaction_hash} <- Chain.string_to_transaction_hash(transaction_hash_string),
          {:ok, transaction} <-
            Chain.hash_to_transaction(
@@ -94,17 +156,38 @@ defmodule BlockScoutWeb.TransactionTokenTransferController do
                :token_transfers => :optional
              }
            ),
-         {:ok, false} <- AccessHelpers.restricted_access?(to_string(transaction.from_address_hash), params),
-         {:ok, false} <- AccessHelpers.restricted_access?(to_string(transaction.to_address_hash), params) do
-      render(
-        conn,
-        "index.html",
-        exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
-        block_height: Chain.block_height(),
-        current_path: Controller.current_full_path(conn),
-        show_token_transfers: true,
-        transaction: transaction
-      )
+         {:ok, false} <-
+           AccessHelpers.restricted_access?(to_string(transaction.from_address_hash), params),
+         {:ok, false} <-
+           AccessHelpers.restricted_access?(to_string(transaction.to_address_hash), params) do
+      %Chain.Transaction{
+        from_address_hash: from_address_hash,
+        to_address_hash: to_address_hash
+      } = transaction
+
+      if address_verified == true ||
+           (wallet_login_hash != nil &&
+              (from_address_hash == wallet_login_hash || to_address_hash == wallet_login_hash)) do
+        render(
+          conn,
+          "index.html",
+          exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
+          block_height: Chain.block_height(),
+          current_path: Controller.current_full_path(conn),
+          show_token_transfers: true,
+          transaction: transaction
+        )
+      else
+        render(
+          conn,
+          "index_private.html",
+          exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
+          block_height: Chain.block_height(),
+          current_path: Controller.current_full_path(conn),
+          show_token_transfers: true,
+          transaction: transaction
+        )
+      end
     else
       :not_found ->
         TransactionController.set_not_found_view(conn, transaction_hash_string)

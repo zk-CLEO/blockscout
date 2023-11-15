@@ -1,0 +1,91 @@
+<% block = @transaction.block %>
+<% from_address_hash = @transaction.from_address_hash %>
+<% to_address_hash = @transaction.to_address_hash %>
+<% created_address_hash = @transaction.created_contract_address_hash %>
+<% type = if @transaction.type == 2, do: "2 (EIP-1559)", else: @transaction.type %>
+<% base_fee_per_gas = if block, do: block.base_fee_per_gas, else: nil %>
+<% max_priority_fee_per_gas = @transaction.max_priority_fee_per_gas %>
+<% max_fee_per_gas = @transaction.max_fee_per_gas %>
+<% burned_fee =
+  if !is_nil(max_fee_per_gas) and !is_nil(@transaction.gas_used) and !is_nil(base_fee_per_gas) do
+    if Decimal.cmp(max_fee_per_gas.value, 0) == :eq do
+      %Wei{value: Decimal.new(0)}
+    else
+      Wei.mult(base_fee_per_gas, @transaction.gas_used)
+    end
+  else
+    nil
+  end %>
+<% %Wei{value: burned_fee_decimal} = if is_nil(burned_fee), do: %Wei{value: Decimal.new(0)}, else: burned_fee %>
+<% priority_fee_per_gas = if is_nil(max_priority_fee_per_gas) or is_nil(base_fee_per_gas), do: nil, else: Enum.min_by([max_priority_fee_per_gas, Wei.sub(max_fee_per_gas, base_fee_per_gas)], fn x -> Wei.to(x, :wei) end) %>
+<% priority_fee = if is_nil(priority_fee_per_gas), do: nil, else: Wei.mult(priority_fee_per_gas, @transaction.gas_used) %>
+<% decoded_input_data = decoded_input_data(@transaction) %>
+<% status = transaction_status(@transaction) %>
+<% circles_addresses_list = CustomContractsHelpers.get_custom_addresses_list(:circles_addresses) %>
+<% address_hash_str = if to_address_hash, do: "0x" <> Base.encode16(to_address_hash.bytes, case: :lower), else: nil %>
+<% {:ok, created_from_address} = if to_address_hash, do: Chain.hash_to_address(to_address_hash), else: {:ok, nil} %>
+<% created_from_address_hash_str = if from_address_hash(created_from_address), do: "0x" <> Base.encode16(from_address_hash(created_from_address).bytes, case: :lower), else: nil %>
+<%= render BlockScoutWeb.Advertisement.TextAdView, "index.html", conn: @conn %>
+<section class="fs-14" data-page="transaction-details" data-page-transaction-hash="<%= @transaction %>">
+  <div class="row">
+    <div class="col-md-12">
+      <!-- Transaction Details -->
+      <div class="card js-ad-dependant-mb-3">
+        <div class="card-body">
+          <%= cond do %>
+            <% Enum.member?(circles_addresses_list, address_hash_str) -> %>
+              <div class="custom-dapp-header-container">
+                <img class="custom-address-icon"/>
+              </div>
+            <% Enum.member?(circles_addresses_list, created_from_address_hash_str) -> %>
+              <div class="custom-dapp-header-container">
+                <img class="custom-address-icon"/>
+              </div>
+            <% true -> %>
+              <%= nil %>
+          <% end %>
+          <h1 class="card-title">
+            <div style="display: inline-block; vertical-align: bottom; line-height: 25px;">
+              <%= gettext "Transaction Details" %>
+            </div>
+          </h1>
+          <%= if status == :pending do %>
+            <div class="tile tile-muted d-flex justify-content-center align-items-center mb-4">
+              <div class="loading-spinner">
+                <span class="loading-spinner-block-1"></span>
+                <span class="loading-spinner-block-2"></span>
+              </div>
+              <%= gettext("This transaction is pending confirmation.") %>
+            </div>
+          <% end %>
+          <div class="d-flex flex-row">
+            <%= if show_tenderly_link?() do %>
+              <div class="mr-4 mb-4">
+                <%= render BlockScoutWeb.CommonComponentsView, "_tenderly_link.html",
+                    transaction_hash: @transaction.hash,
+                    tenderly_chain_path: tenderly_chain_path() %>
+              </div>
+            <% end %>
+          </div>
+          <dl class="row">
+            <dt class="col-sm-3 col-lg-2 text-muted">
+              <%= render BlockScoutWeb.CommonComponentsView, "_i_tooltip_2.html",
+              text: gettext("Unique character string (TxID) assigned to every verified transaction.") %>
+              <%= gettext "Transaction Hash" %>
+            </dt>
+            <dd class="col-sm-9 col-lg-10" style="word-break: break-all;">
+              <span class="transaction-details-address" data-test="transaction_detail_hash"><%= @transaction %> </span>
+              <%= render BlockScoutWeb.CommonComponentsView, "_btn_copy.html",
+                  additional_classes: ["btn-copy-icon-small", "btn-copy-icon-custom", "btn-copy-icon-no-borders"],
+                  clipboard_text: @transaction,
+                  aria_label: gettext("Copy Transaction Hash"),
+                  title: gettext("Copy Txn Hash") %>
+            </dd>
+          </dl>
+      </div>
+    </div>
+  </div>
+
+  <%= render BlockScoutWeb.Advertisement.BannersAdView, "_banner_728.html", conn: @conn %>
+  <script defer data-cfasync="false" src="<%= static_path(@conn, "/js/transaction.js") %>"></script>
+</section>

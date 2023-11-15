@@ -7,6 +7,7 @@ defmodule BlockScoutWeb.TransactionRawTraceController do
   alias Explorer.Chain.Import
   alias Explorer.Chain.Import.Runner.InternalTransactions
   alias Explorer.ExchangeRates.Token
+  alias BlockScoutWeb.Privacy.PrivacyVerify
 
   def index(conn, %{"transaction_id" => hash_string} = params) do
     with {:ok, hash} <- Chain.string_to_transaction_hash(hash_string),
@@ -22,8 +23,10 @@ defmodule BlockScoutWeb.TransactionRawTraceController do
                :token_transfers => :optional
              }
            ),
-         {:ok, false} <- AccessHelpers.restricted_access?(to_string(transaction.from_address_hash), params),
-         {:ok, false} <- AccessHelpers.restricted_access?(to_string(transaction.to_address_hash), params) do
+         {:ok, false} <-
+           AccessHelpers.restricted_access?(to_string(transaction.from_address_hash), params),
+         {:ok, false} <-
+           AccessHelpers.restricted_access?(to_string(transaction.to_address_hash), params) do
       if is_nil(transaction.block_number) do
         render_raw_trace(conn, [], transaction, hash)
       else
@@ -86,14 +89,46 @@ defmodule BlockScoutWeb.TransactionRawTraceController do
   end
 
   defp render_raw_trace(conn, internal_transactions, transaction, hash) do
-    render(
-      conn,
-      "index.html",
-      exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
-      internal_transactions: internal_transactions,
-      block_height: Chain.block_height(),
-      show_token_transfers: Chain.transaction_has_token_transfers?(hash),
-      transaction: transaction
-    )
+    ## Verify wallet
+    address_verified = PrivacyVerify.wallet_verify(conn, nil)
+    wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+    wallet_login_hash =
+      if wallet_login == nil do
+        nil
+      else
+        {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+        wallet_login_hash
+      end
+
+    ##
+    %Chain.Transaction{
+      from_address_hash: from_address_hash,
+      to_address_hash: to_address_hash
+    } = transaction
+
+    if address_verified == true ||
+         (wallet_login_hash != nil &&
+            (from_address_hash == wallet_login_hash || to_address_hash == wallet_login_hash)) do
+      render(
+        conn,
+        "index.html",
+        exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
+        internal_transactions: internal_transactions,
+        block_height: Chain.block_height(),
+        show_token_transfers: Chain.transaction_has_token_transfers?(hash),
+        transaction: transaction
+      )
+    else
+      render(
+        conn,
+        "index_private.html",
+        exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
+        internal_transactions: internal_transactions,
+        block_height: Chain.block_height(),
+        show_token_transfers: Chain.transaction_has_token_transfers?(hash),
+        transaction: transaction
+      )
+    end
   end
 end

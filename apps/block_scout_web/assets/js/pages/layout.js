@@ -65,7 +65,7 @@ const checkConnectWallet = async () => {
 }
 setInterval(() => {
   checkConnectWallet()
-}, [3000])
+}, [1000])
 
 $topConnectWallet.on('click', async (_event) => {
   try {
@@ -113,11 +113,11 @@ $topConnectWallet.on('click', async (_event) => {
                 wallet_address: walletConnect,
                 signature: res.result
               }).then(res => {
-                Cookie.set('authorization_wallet', walletConnect, { expires: new Date(new Date().getTime() + 60 * 1000) })
+                Cookie.set('authorization_wallet', walletConnect, { expires: 1 })
                 Cookie.set(
                   'authorization_token',
                   res.data.data.token,
-                  { expires: new Date(new Date().getTime() + 60 * 1000) }
+                  { expires: 1 }
                 )
                 location.reload()
               })

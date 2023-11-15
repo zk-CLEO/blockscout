@@ -111,6 +111,19 @@ defmodule BlockScoutWeb.TransactionInternalTransactionController do
   end
 
   def index(conn, %{"transaction_id" => transaction_hash_string} = params) do
+    ## Verify wallet
+    address_verified = PrivacyVerify.wallet_verify(conn, nil)
+    wallet_login = PrivacyVerify.wallet_login_verify(conn)
+
+    wallet_login_hash =
+      if wallet_login == nil do
+        nil
+      else
+        {:ok, wallet_login_hash} = Chain.string_to_address_hash(wallet_login)
+        wallet_login_hash
+      end
+
+    ##
     with {:ok, transaction_hash} <- Chain.string_to_transaction_hash(transaction_hash_string),
          {:ok, transaction} <-
            Chain.hash_to_transaction(
@@ -128,15 +141,34 @@ defmodule BlockScoutWeb.TransactionInternalTransactionController do
            AccessHelpers.restricted_access?(to_string(transaction.from_address_hash), params),
          {:ok, false} <-
            AccessHelpers.restricted_access?(to_string(transaction.to_address_hash), params) do
-      render(
-        conn,
-        "index.html",
-        exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
-        current_path: Controller.current_full_path(conn),
-        block_height: Chain.block_height(),
-        show_token_transfers: Chain.transaction_has_token_transfers?(transaction_hash),
-        transaction: transaction
-      )
+      %Chain.Transaction{
+        from_address_hash: from_address_hash,
+        to_address_hash: to_address_hash
+      } = transaction
+
+      if address_verified == true ||
+           (wallet_login_hash != nil &&
+              (from_address_hash == wallet_login_hash || to_address_hash == wallet_login_hash)) do
+        render(
+          conn,
+          "index.html",
+          exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
+          current_path: Controller.current_full_path(conn),
+          block_height: Chain.block_height(),
+          show_token_transfers: Chain.transaction_has_token_transfers?(transaction_hash),
+          transaction: transaction
+        )
+      else
+        render(
+          conn,
+          "index_private.html",
+          exchange_rate: Market.get_exchange_rate(Explorer.coin()) || Token.null(),
+          current_path: Controller.current_full_path(conn),
+          block_height: Chain.block_height(),
+          show_token_transfers: Chain.transaction_has_token_transfers?(transaction_hash),
+          transaction: transaction
+        )
+      end
     else
       {:restricted_access, _} ->
         TransactionController.set_not_found_view(conn, transaction_hash_string)

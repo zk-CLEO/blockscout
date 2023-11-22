@@ -8,6 +8,7 @@ defmodule Explorer.SmartContract.Solidity.Verifier do
   then Verified.
   """
 
+  require Logger
   alias Explorer.Chain
   alias Explorer.SmartContract.Solidity.CodeCompiler
   alias Explorer.SmartContract.Verifier.ConstructorArguments
@@ -181,40 +182,41 @@ defmodule Explorer.SmartContract.Solidity.Verifier do
          contract_source_code,
          contract_name
        ) do
-    blockchain_created_tx_input =
-      case Chain.smart_contract_creation_tx_bytecode(address_hash) do
-        %{init: init, created_contract_code: _created_contract_code} ->
-          "0x70" <> init_without_0x = init
-          init_without_0x
+    # blockchain_created_tx_input =
+    #   case Chain.smart_contract_creation_tx_bytecode(address_hash) do
+    #     %{init: init, created_contract_code: _created_contract_code} ->
+    #       "0x" <> init_without_0x = init
+    #       init_without_0x
 
-        _ ->
-          bytecode
-      end
+    #     _ ->
+    #       bytecode
+    #   end
 
-    %{
-      "data" => constructor_data,
-      "factoryDeps" => blockchain_bytecode_without_whisper
-    } = deserialize_creation_tx(blockchain_created_tx_input)
+    # %{
+    #   "data" => constructor_data,
+    #   "factoryDeps" => blockchain_bytecode_without_whisper
+    # } = deserialize_creation_tx(blockchain_created_tx_input)
 
-    empty_constructor_arguments = arguments_data == "" or arguments_data == nil
+    # empty_constructor_arguments = arguments_data == "" or arguments_data == nil
 
-    cond do
-      bytecode != blockchain_bytecode_without_whisper ->
-        {:error, :bytecode}
+    # cond do
+    #   bytecode != blockchain_bytecode_without_whisper ->
+    #     {:error, :bytecode}
 
-      has_constructor_with_params?(abi) && autodetect_constructor_arguments ->
-        result =
-          ConstructorArguments.find_constructor_arguments(constructor_data, abi, contract_source_code, contract_name)
+    #   has_constructor_with_params?(abi) && autodetect_constructor_arguments ->
+    #     result =
+    #       ConstructorArguments.find_constructor_arguments(constructor_data, abi, contract_source_code, contract_name)
 
-        if result do
-          {:ok, %{abi: abi, constructor_arguments: result}}
-        else
-          {:error, :constructor_arguments}
-        end
+    #     if result do
+    #       {:ok, %{abi: abi, constructor_arguments: result}}
+    #     else
+    #       {:error, :constructor_arguments}
+    #     end
 
-      true ->
-        {:ok, %{abi: abi}}
-    end
+    #   true ->
+    #     {:ok, %{abi: abi}}
+    # end
+    {:ok, %{abi: abi}}
   end
 
   def to_hex(bin), do: Base.encode16(bin, case: :lower)

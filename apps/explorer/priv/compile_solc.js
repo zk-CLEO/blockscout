@@ -8,39 +8,51 @@ const child_process = require("child_process");
 
 // var externalLibraries = JSON.parse(process.argv[6])
 
-var fs = require('fs');
-var sourceCode = fs.readFileSync(sourceCodePath, 'utf8');
+var fs = require("fs");
+var sourceCode = fs.readFileSync(sourceCodePath, "utf8");
+
+// var settings = {
+//     optimizer: {
+//       enabled: optimize == '1',
+//       runs: optimizationRuns
+//     },
+//     outputSelection: {
+//       '*': {
+//           '*': ['*']
+//       }
+//     }
+// }
 
 var settings = {
-    optimizer: {
-      enabled: optimize == '1',
-      runs: optimizationRuns
+  optimizer: {
+    enabled: true,
+    runs: optimizationRuns,
+  },
+  outputSelection: {
+    "*": {
+      "*": ["abi", "evm.methodIdentifiers", "metadata"],
     },
-    outputSelection: {
-      '*': {
-          '*': ['*']
-      }
-    }
-}
+  },
+};
 
 const input = {
-  language: 'Solidity',
+  language: "Solidity",
   sources: {
     [newContractName]: {
-      content: sourceCode
-    }
+      content: sourceCode,
+    },
   },
-  settings: settings
-}
+  settings: settings,
+};
 
 // TODO: investigate why stringifying the input inline in the command doesnt work
-fs.writeFileSync("compile.tmp", JSON.stringify(input))
+fs.writeFileSync("compile.tmp", JSON.stringify(input));
 
 var execSync = require("child_process").execSync;
-var execString = `zksolc --standard-json --optimize < compile.tmp`
+var execString = `zksolc --standard-json < compile.tmp`;
 var result = execSync(execString);
 
-fs.unlinkSync("compile.tmp")
+fs.unlinkSync("compile.tmp");
 
-const output = JSON.parse(result.toString("utf8"))
+const output = JSON.parse(result.toString("utf8"));
 console.log(JSON.stringify(output));

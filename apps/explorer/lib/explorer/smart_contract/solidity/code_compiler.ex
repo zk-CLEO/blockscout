@@ -9,7 +9,7 @@ defmodule Explorer.SmartContract.Solidity.CodeCompiler do
 
   @required_standard_input_fields ~w(language sources settings)
 
-  @default_output_selection %{"*" => %{"*" => ["*"]}}
+  @default_output_selection %{"*" => %{"*" => ["abi", "evm.methodIdentifiers", "metadata"]}}
 
   @doc """
   Compiles a code in the solidity command line.

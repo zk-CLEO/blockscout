@@ -9,7 +9,7 @@ var fs = require('fs');
 var input = fs.readFileSync(inputJSONFilePath, 'utf8');
 
 var execSync = require("child_process").execSync;
-var execString = `zksolc --standard-json --optimize < ${inputJSONFilePath}`
+var execString = `zksolc --standard-json < ${inputJSONFilePath}`
 var result = execSync(execString);
 
 const output = JSON.parse(result.toString("utf8"))

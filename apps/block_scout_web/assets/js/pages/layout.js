@@ -17,23 +17,25 @@ const showWallet = '[show-wallet]'
 const $topConnectWallet = $('[top-connect-wallet]')
 const $topDisconnectWallet = $('[top-disconnect-wallet]')
 
-window.ethereum.on('disconnect', () => {
-  Cookie.remove('authorization_wallet')
-  Cookie.remove('authorization_token')
-  document.querySelector(topDisconnectWallet)?.classList.add('hidden')
-  document.querySelector(showWallet)?.classList.add('hidden')
-  document.querySelector(topConnectWallet)?.classList.remove('hidden')
-  location.reload()
-})
+if (window.ethereum) {
+  window.ethereum.on('disconnect', () => {
+    Cookie.remove('authorization_wallet')
+    Cookie.remove('authorization_token')
+    document.querySelector(topDisconnectWallet)?.classList.add('hidden')
+    document.querySelector(showWallet)?.classList.add('hidden')
+    document.querySelector(topConnectWallet)?.classList.remove('hidden')
+    location.reload()
+  })
 
-window.ethereum.on('accountsChanged', function (accounts) {
-  Cookie.remove('authorization_wallet')
-  Cookie.remove('authorization_token')
-  document.querySelector(topDisconnectWallet)?.classList.add('hidden')
-  document.querySelector(showWallet)?.classList.add('hidden')
-  document.querySelector(topConnectWallet)?.classList.remove('hidden')
-  location.reload()
-})
+  window.ethereum.on('accountsChanged', function (accounts) {
+    Cookie.remove('authorization_wallet')
+    Cookie.remove('authorization_token')
+    document.querySelector(topDisconnectWallet)?.classList.add('hidden')
+    document.querySelector(showWallet)?.classList.add('hidden')
+    document.querySelector(topConnectWallet)?.classList.remove('hidden')
+    location.reload()
+  })
+}
 
 const checkConnectWallet = async () => {
   const walletConnect = await getCurrentAccount()
@@ -68,78 +70,80 @@ setInterval(() => {
 }, [1000])
 
 $topConnectWallet.on('click', async (_event) => {
-  try {
-    await window.ethereum.request({ method: 'eth_requestAccounts' })
-    const walletConnect = await getCurrentAccount()
+  if (window.ethereum) {
+    try {
+      await window.ethereum.request({ method: 'eth_requestAccounts' })
+      const walletConnect = await getCurrentAccount()
 
-    if (walletConnect) {
-      axios
-        .post('http://localhost:8080/as-authorization/secret-nonce', {
-          wallet_address: walletConnect
-        })
-        .then(async (res) => {
-          const message = res.data.data.secret_nonce
-          if (message) {
-            const web3 = new Web3(window.ethereum)
-            const signData = JSON.stringify({
-              domain: {
-                chainId: 1302,
-                name: 'CLEO BlockScout',
-                version: '1'
-              },
-              message: {
-                contents: message,
-                attachedMoneyInEth: 0
-              },
-              primaryType: 'BlockScout',
-              types: {
-                // This refers to the domain the contract is hosted on.
-                EIP712Domain: [
-                  { name: 'name', type: 'string' },
-                  { name: 'version', type: 'string' },
-                  { name: 'chainId', type: 'uint256' }
-                ],
-                BlockScout: [
-                  { name: 'contents', type: 'string' }
-                ]
-              }
-            })
-            web3.currentProvider.sendAsync({
-              method: 'eth_signTypedData_v4',
-              params: [walletConnect, signData],
-              from: walletConnect
-            }, (_, res) => {
-              axios.post('http://localhost:8080/as-authorization/signature-verified', {
-                wallet_address: walletConnect,
-                signature: res.result
-              }).then(res => {
-                Cookie.set('authorization_wallet', walletConnect, { expires: 1 })
-                Cookie.set(
-                  'authorization_token',
-                  res.data.data.token,
-                  { expires: 1 }
-                )
-                location.reload()
+      if (walletConnect) {
+        axios
+          .post('http://localhost:8080/as-authorization/secret-nonce', {
+            wallet_address: walletConnect
+          })
+          .then(async (res) => {
+            const message = res.data.data.secret_nonce
+            if (message) {
+              const web3 = new Web3(window.ethereum)
+              const signData = JSON.stringify({
+                domain: {
+                  chainId: 1302,
+                  name: 'CLEO BlockScout',
+                  version: '1'
+                },
+                message: {
+                  contents: message,
+                  attachedMoneyInEth: 0
+                },
+                primaryType: 'BlockScout',
+                types: {
+                  // This refers to the domain the contract is hosted on.
+                  EIP712Domain: [
+                    { name: 'name', type: 'string' },
+                    { name: 'version', type: 'string' },
+                    { name: 'chainId', type: 'uint256' }
+                  ],
+                  BlockScout: [
+                    { name: 'contents', type: 'string' }
+                  ]
+                }
               })
-            })
-          }
-        })
-        .catch(() => {})
-    }
+              web3.currentProvider.sendAsync({
+                method: 'eth_signTypedData_v4',
+                params: [walletConnect, signData],
+                from: walletConnect
+              }, (_, res) => {
+                axios.post('http://localhost:8080/as-authorization/signature-verified', {
+                  wallet_address: walletConnect,
+                  signature: res.result
+                }).then(res => {
+                  Cookie.set('authorization_wallet', walletConnect, { expires: 1 })
+                  Cookie.set(
+                    'authorization_token',
+                    res.data.data.token,
+                    { expires: 1 }
+                  )
+                  location.reload()
+                })
+              })
+            }
+          })
+          .catch(() => {})
+      }
 
-    document.querySelector(topDisconnectWallet)?.classList.remove('hidden')
-    document.querySelector(showWallet)?.classList.remove('hidden')
-    if (document.querySelector(showWallet)) {
-      const walletConnectString = walletConnect.toString()
-      const truncatedString =
-        walletConnectString.substring(0, 8) +
-        '...' +
-        walletConnectString.substring(walletConnectString.length - 5)
-      document.querySelector(showWallet).innerHTML = truncatedString
+      document.querySelector(topDisconnectWallet)?.classList.remove('hidden')
+      document.querySelector(showWallet)?.classList.remove('hidden')
+      if (document.querySelector(showWallet)) {
+        const walletConnectString = walletConnect.toString()
+        const truncatedString =
+          walletConnectString.substring(0, 8) +
+          '...' +
+          walletConnectString.substring(walletConnectString.length - 5)
+        document.querySelector(showWallet).innerHTML = truncatedString
+      }
+      document.querySelector(topConnectWallet)?.classList.add('hidden')
+    } catch (error) {
+      console.error('Error connecting wallet:', error)
     }
-    document.querySelector(topConnectWallet)?.classList.add('hidden')
-  } catch (error) {
-    console.error('Error connecting wallet:', error)
   }
 })
 
@@ -157,17 +161,23 @@ $topDisconnectWallet.on('click', async (_event) => {
 })
 
 function getCurrentAccount () {
-  return new Promise((resolve, reject) => {
-    window.ethereum
-      .request({ method: 'eth_accounts' })
-      .then((accounts) => {
-        const account = accounts[0] ? accounts[0].toLowerCase() : null
-        resolve(account)
-      })
-      .catch((err) => {
-        reject(err)
-      })
-  })
+  if (window.ethereum) {
+    return new Promise((resolve, reject) => {
+      window.ethereum
+        .request({ method: 'eth_accounts' })
+        .then((accounts) => {
+          const account = accounts[0] ? accounts[0].toLowerCase() : null
+          resolve(account)
+        })
+        .catch((err) => {
+          reject(err)
+        })
+    })
+  } else {
+    return new Promise((resolve, reject) => {
+      resolve(undefined)
+    })
+  }
 }
 
 const search = (value) => {
